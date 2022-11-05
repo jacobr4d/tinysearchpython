@@ -21,6 +21,7 @@ parser = argparse.ArgumentParser(prog="tinysearchpython", description="crawl, in
 parser.add_argument("--seeds", dest="seeds_path", default="seeds", help="location to get seed urls")
 parser.add_argument("--hits", dest="hits_path", default="hits", help="location to store hits")
 parser.add_argument("--links", dest="links_path", default="links", help="location to store links")
+parser.add_argument("--count", dest="count_path", default="count", help="location to final count of crawled docs")
 parser.add_argument("--bpp", dest="page_size_limit_bytes", type=int, default=1000000, help="page size limit bytes (not processed if over)")
 parser.add_argument("--hpp", dest="hits_per_page_limit", type=int, default=1000000, help="hits per page limit (subset processed if over)")
 parser.add_argument("--lpp", dest="links_per_page_limit", type=int, default=1000000, help="links per page limit (subset processed if over)")
@@ -34,6 +35,11 @@ frontier = [Url(x.strip()) for x in open(args.seeds_path).readlines()]
 seen = set(str(x) for x in frontier)
 robots = {}
 count = 0
+
+# write count for further processing
+def write_count():
+    with open(args.count_path, "w") as count_file:
+        print(count, file=count_file)
 
 # dump log at end
 def log():
@@ -50,6 +56,8 @@ def log():
     print(f"seen set size {len(seen)}")
     print(f"robots map size {len(robots)}")
     print(f"downloaded count {count}")
+
+atexit.register(write_count)
 atexit.register(log)
 
 # crawl
