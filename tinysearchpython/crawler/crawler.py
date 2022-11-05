@@ -16,8 +16,8 @@ from robot import *
 ps = nltk.stem.PorterStemmer()
 stop_words_set = set(stopwords.words("english"))
 
-# crawl config is args
-parser = argparse.ArgumentParser(prog="tinysearchpython", description="crawl, index, pagerank, search engine")
+# crawler config is args
+parser = argparse.ArgumentParser(prog="tinysearchpython crawl", description="crawls the web")
 parser.add_argument("--seeds", dest="seeds_path", default="seeds", help="location to get seed urls")
 parser.add_argument("--hits", dest="hits_path", default="hits", help="location to store hits")
 parser.add_argument("--links", dest="links_path", default="links", help="location to store links")
