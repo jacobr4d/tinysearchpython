@@ -37,16 +37,19 @@ count = 0
 
 # dump log at end
 def log():
-    logging.info("exit summary")
-    logging.info(f"hits path {args.hits_path}")
-    logging.info(f"links path {args.links_path}")
-    logging.info(f"page size limit bytes {args.page_size_limit_bytes}")
-    logging.info(f"hits per page limit {args.hits_per_page_limit}")
-    logging.info(f"links per page limit {args.links_per_page_limit}")
-    logging.info(f"frontier list size {len(frontier)}")
-    logging.info(f"seen set size {len(seen)}")
-    logging.info(f"robots map size {len(robots)}")
-    logging.info(f"downloaded count {count}")
+    print("SUMMARY")
+    print("CONFIG")
+    print(f"seeds path {args.seeds_path}")
+    print(f"hits path {args.hits_path}")
+    print(f"links path {args.links_path}")
+    print(f"page size limit bytes {args.page_size_limit_bytes}")
+    print(f"hits per page limit {args.hits_per_page_limit}")
+    print(f"links per page limit {args.links_per_page_limit}")
+    print("CRAWL STATE")
+    print(f"frontier list size {len(frontier)}")
+    print(f"seen set size {len(seen)}")
+    print(f"robots map size {len(robots)}")
+    print(f"downloaded count {count}")
 atexit.register(log)
 
 # crawl
