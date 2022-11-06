@@ -1,0 +1,23 @@
+<!DOCTYPE html>
+<html lang="en">
+    <head>
+        <meta charset="UTF-8">
+        <title>Tiny Python Search</title>
+    </head>
+    <body>
+        <h1>Search</h1>
+        <form action="/">
+            <input type="search" name="query">
+            <input type="submit">
+        </form>
+
+        {% if results %}
+            <h2>Results</h2>
+            <ul>
+            {% for result in results %}
+                <li>{{result}}</li>
+            {% endfor %}
+            </ul>
+        {% endif %}
+    </body>
+</html>
