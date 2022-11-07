@@ -19,6 +19,7 @@ stop_words_set = set(stopwords.words("english"))
 # crawler config is args
 parser = argparse.ArgumentParser(prog="tinysearchpython crawl", description="crawls the web")
 parser.add_argument("--seeds", dest="seeds_path", default="seeds", help="location to get seed urls")
+parser.add_argument("--urls", dest="urls_path", default="urls", help="location to store crawled urls")
 parser.add_argument("--hits", dest="hits_path", default="hits", help="location to store hits")
 parser.add_argument("--links", dest="links_path", default="links", help="location to store links")
 parser.add_argument("--count", dest="count_path", default="count", help="location to final count of crawled docs")
@@ -61,7 +62,7 @@ atexit.register(write_count)
 atexit.register(log)
 
 # crawl
-with open(args.hits_path, "w") as hits_file, open(args.links_path, "w") as links_file:
+with open(args.urls_path, "w") as urls_file, open(args.hits_path, "w") as hits_file, open(args.links_path, "w") as links_file:
     while (True):
         url = frontier.pop(0)
 
@@ -108,6 +109,8 @@ with open(args.hits_path, "w") as hits_file, open(args.links_path, "w") as links
         html = fromstring(get.text)
         html.make_links_absolute(str(url))
         links_parsed = 0
+        # give every page a link to itself, so that it is aknowledged in pagerank
+        print(url, file=urls_file)
         for _, _, link, _ in html.iterlinks():
             if links_parsed > args.links_per_page_limit:
                 break
@@ -136,7 +139,7 @@ with open(args.hits_path, "w") as hits_file, open(args.links_path, "w") as links
         for word in get.text.split():
             if links_parsed > args.links_per_page_limit:
                 break
-            if not re.fullmatch("[a-zA-Z']+", word):
+            if not re.fullmatch("[a-zA-Z']{2,}", word):
                 continue
             word = word.lower()
             if word in stop_words_set:

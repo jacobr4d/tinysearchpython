@@ -9,6 +9,7 @@ from pyspark import SparkContext, SparkConf
 
 # indexer config is args
 parser = argparse.ArgumentParser(prog="tinysearchpython indexer", description="indexes from crawl data")
+parser.add_argument("--urls", dest="urls_path", default="urls", help="location to get crawled urls")
 parser.add_argument("--hits", dest="hits_path", default="hits", help="location to get hits")
 parser.add_argument("--links", dest="links_path", default="links", help="location to get links")
 parser.add_argument("--count", dest="count_path", default="count", help="location to get count of crawled docs")
@@ -35,6 +36,7 @@ def save_rdd(rdd, file_name):
         for line in sorted(input(glob(tempFile.name + "/part-0000*"))):
             file.write(line)
 
+
 # Batch compute tfs
 # lines are word <space> url
 hits = sc.textFile(args.hits_path)
@@ -43,6 +45,7 @@ sums = thing.reduceByKey(lambda x, y: x + y)
 tfs = sums.map(lambda x: (x[0], math.log(1 + x[1])))
 formatted = tfs.map(lambda tup: " ".join([str(x) for x in tup]))
 save_rdd(formatted, args.tfs_path)
+
 
 # Batch compute idfs
 # lines are word <space> url <space> tf
@@ -54,38 +57,53 @@ idfs = sums.map(lambda x: (x[0], math.log(count / (1 + x[1]) + 1)))
 formatted = idfs.map(lambda tup: " ".join([str(x) for x in tup]))
 save_rdd(formatted, args.idfs_path)
 
-# Batch compute prs
+
+# Batch compute page ranks
 # lines are fromURL <space> toURL, read them and remove duplicates
-lines = sc.textFile(args.links_path)
-lines = lines.distinct()
+crawled_urls = sc.textFile(args.urls_path).distinct()
+print(f"{crawled_urls.count()} crawled urls")
 
-# all links
-fromTo = lines.map(lambda x: (x.split(' ')[0], x.split(' ')[1]))
-toFrom = fromTo.map(lambda x: (x[1], x[0]))
-outList = fromTo.groupByKey()
-inList = toFrom.groupByKey()
-outDegree = fromTo.map(lambda x: (x[0], 1)).reduceByKey(lambda x, y: x + y)
-inDegree = toFrom.map(lambda x: (x[0], 1)).reduceByKey(lambda x, y: x + y)
+links = sc.textFile(args.links_path).distinct()
+print(f"{links.count()} unique links")
 
-# sets of urls
-urls = fromTo.flatMap(lambda x: [x[0], x[1]]).distinct()
-n = urls.count()
-froms = fromTo.map(lambda x: x[0]).distinct()
-tos = fromTo.map(lambda x: x[1]).distinct()
+from_to = links.map(lambda x: (x.split(' ')[0], x.split(' ')[1]))
+froms = from_to.map(lambda x: x[0]).distinct()
+tos = from_to.map(lambda x: x[1]).distinct()
+urls = crawled_urls.union(froms).union(tos).distinct()
+print(f"{urls.count()} known urls (crawled, from, or to)")
+
+# total rank must stay the same, therefore we need to 
+# distribute tank articifically from the "sinks",
+# ie the urls that wouldn't be "froms"
 sinks = urls.subtract(froms)
 
-# print("urls, froms, tos, sinks")
-# print(urls.count(), froms.count(), tos.count(), sinks.count())
-
-# init (url, rank)
-l = 0.8
+# rank computed for every known url
+n = urls.count()
+lparam = 0.8
 rank = urls.map(lambda x: (x, 1.0 / n)) 
+save_rdd(rank, "init_rank")
 
-for i in range(5):
-  inRankNonSinks = outList.join(rank).flatMap(lambda x: [(i, float (x[1][1])/len(x[1][0])) for i in x[1][0]]).reduceByKey(lambda x, y: x + y)
-  inRankAll = rank.leftOuterJoin(inRankNonSinks).map(lambda x: (x[0], x[1][1] if x[1][1] != None else 0))
-  sinkRank = sinks.map(lambda x: (x, "dummy")).join(rank).map(lambda x: x[1][1]).reduce(lambda x, y: x + y)
-  rank = inRankAll.map(lambda x: (x[0], (1 - l + l * sinkRank / n + l * x[1])))
+# for i in range(5):
+in_rank_tos = (
+    from_to.groupByKey()                                                                # (from, [tos...])...
+    .join(rank)                                                                         # (from, ([tos...], rank))... 
+    .flatMap(lambda x: [(y, float (x[1][1])/len(x[1][0])) for y in x[1][0]])            # (to, rank_from_from)...
+    .reduceByKey(lambda x, y: x + y)                                                    # (to, total_rank_from_froms)...
+)
+in_rank_all = (
+    rank.leftOuterJoin(in_rank_tos)                                                     # (url, (rank, in_rank_to | None))
+    .map(lambda x: (x[0], x[1][1] if x[1][1] != None else 0))                           # (url, in_rank_to | 0)
+)
+total_sink_rank = (
+    sinks.map(lambda x: (x, "dummy"))                                                   # (sink, "dummy")...
+    .join(rank)                                                                         # (sink, ("dummy", sink_rank))
+    .map(lambda x: x[1][1])                                                             # (sink_rank)...
+    .reduce(lambda x, y: x + y)                                                         # total_sink_rank
+)
+rank = (
+    in_rank_all                                                                         # (url, in_rank)
+    .map(lambda x: (x[0], (1 - lparam + lparam * total_sink_rank / n + lparam * x[1]))) # (url, rank)
+)
 
-rank = rank.map(lambda line: " ".join([str(x) for x in line]))
-save_rdd(rank, args.ranks_path)
+formatted_rank = rank.map(lambda line: " ".join([str(x) for x in line]))
+save_rdd(formatted_rank, args.ranks_path)
