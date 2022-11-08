@@ -77,36 +77,35 @@ print(urls.take(5))
 
 # total rank must stay the same, therefore we need to 
 # distribute tank articifically from the "sinks",
-# ie the urls that wouldn't be "froms"
+# ie the urls that aren't "froms"
 sinks = urls.subtract(froms)
 
 # rank computed for every known url
 n = urls.count()
 lparam = 0.8
 rank = urls.map(lambda x: (x, 1.0 / n)) 
-print(rank.count())
-# for i in range(5):
-in_rank_tos = (
-    from_to.groupByKey()                                                                # (from, [tos...])...
-    .join(rank)                                                                         # (from, ([tos...], rank))... 
-    .flatMap(lambda x: [(y, float (x[1][1])/len(x[1][0])) for y in x[1][0]])            # (to, rank_from_from)...
-    .reduceByKey(lambda x, y: x + y)                                                    # (to, total_rank_from_froms)...
-)
-in_rank_all = (
-    rank.leftOuterJoin(in_rank_tos)                                                     # (url, (rank, in_rank_to | None))
-    .map(lambda x: (x[0], x[1][1] if x[1][1] != None else 0))                           # (url, in_rank_to | 0)
-)
-print(in_rank_all.count())
-total_sink_rank = (
-    sinks.map(lambda x: (x, "dummy"))                                                   # (sink, "dummy")...
-    .join(rank)                                                                         # (sink, ("dummy", sink_rank))
-    .map(lambda x: x[1][1])                                                             # (sink_rank)...
-    .reduce(lambda x, y: x + y)                                                         # total_sink_rank
-)
-rank = (
-    in_rank_all                                                                         # (url, in_rank)
-    .map(lambda x: (x[0], (1 - lparam + lparam * total_sink_rank / n + lparam * x[1]))) # (url, rank)
-)
+
+for i in range(5):
+    in_rank_tos = (
+        from_to.groupByKey()                                                                # (from, [tos...])...
+        .join(rank)                                                                         # (from, ([tos...], rank))... 
+        .flatMap(lambda x: [(y, float (x[1][1])/len(x[1][0])) for y in x[1][0]])            # (to, rank_from_from)...
+        .reduceByKey(lambda x, y: x + y)                                                    # (to, total_rank_from_froms)...
+    )
+    in_rank_all = (
+        rank.leftOuterJoin(in_rank_tos)                                                     # (url, (rank, in_rank_to | None))
+        .map(lambda x: (x[0], x[1][1] if x[1][1] != None else 0))                           # (url, in_rank_to | 0)
+    )
+    total_sink_rank = (
+        sinks.map(lambda x: (x, "dummy"))                                                   # (sink, "dummy")...
+        .join(rank)                                                                         # (sink, ("dummy", sink_rank))
+        .map(lambda x: x[1][1])                                                             # (sink_rank)...
+        .reduce(lambda x, y: x + y)                                                         # total_sink_rank
+    )
+    rank = (
+        in_rank_all                                                                         # (url, in_rank)
+        .map(lambda x: (x[0], (1 - lparam + lparam * total_sink_rank / n + lparam * x[1]))) # (url, rank)
+    )
 
 formatted_rank = rank.map(lambda line: " ".join([str(x) for x in line]))
 save_rdd(formatted_rank, args.ranks_path)

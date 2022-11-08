@@ -5,7 +5,7 @@
         <title>Tiny Python Search</title>
     </head>
     <body>
-        <h1>Search</h1>
+        <h2>Search</h2>
         <form action="/">
             <input type="search" name="query">
             <input type="submit">
@@ -17,7 +17,13 @@
             <h2>Results</h2>
             <ul>
             {% for result in results %}
-                <li><a href="{{result["url"]}}">{{result["url"]}}</a><br>{{result}}</li>
+                <li>
+                    <a href="{{result["url"]}}">{{result["url"]}}</a>
+                    <br>
+                    {% if v %}
+                        {{result}}
+                    {% endif %}
+                </li>
             {% endfor %}
             </ul>
         {% endif %}

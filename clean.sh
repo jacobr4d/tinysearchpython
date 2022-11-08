@@ -1,1 +1,1 @@
-rm count urls hits links tfs idfs ranks index.db
+rm count urls hits links tfs idfs ranks database
