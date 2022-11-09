@@ -54,7 +54,7 @@ Assuming each link can be stored in 100 bytes, storing the links will take 50 GB
 <p align="center">
 500M links * 100 bytes/link = 50GB
 </p>
-Therefore the crawl data storage will be 150 GB in total:
+Therefore the crawl data will be 150 GB in total:
 <p align="center">
 100GB + 50GB = 150 GB
 </p>
@@ -71,8 +71,10 @@ If we want to index 1M pages in 12 hrs, then we need to generate search data for
 ### Summmary
 - Our crawler needs to download and process > 23 pages / second
 - Our indexer needs to process > 23 pages / second
-- Our file system needs capacity > 300 GB
+- Our file system needs capacity > 400 GB
 - Our database capacity needs to be > 200 GB
+- Our estimate for crawl data will be about 150GB (150 KB / page)
+- Our estimate for search data will be about 150GB (150 KB / page)
 
 # First Iteration
 ## Detailed Design
@@ -86,13 +88,30 @@ If we want to index 1M pages in 12 hrs, then we need to generate search data for
 - Search is simple, in that
   - tfs, idfs, and pagerank are combined to produce ranking of results
   - for every query term, data from all the pages with that term are fetched from index (not scalable with respect to many query terms)
+  - all these fetched results are put in python lists
 <p align="center">
   <img src="https://raw.githubusercontent.com/jacobr4d/tinysearchpython/master/docs/iteration_1.png">
 </p>
 
 ## Quantitative Evalutation
+We did a test crawl of 1000 pages from the seed "https://wikipedia.org" 
+### Space
+- Crawl data is ~87 MB (87 KB / page)
+- Search data is ~32 MB (32 KB / page)
+- Database size is ~32 MB (32 KB / page)
+### Time
+- The crawler crawled 1000 pages in ~ 1 pages / second
+- The indexer indexed 1000 pages in 89 seconds giving an average speed of 11 pages / second
+- Database uploaded 1000 pages in 0.7 seconds giving an average speed of 1,400 pages / second
+- With a corpus of 1000 pages, search for uncommon words are < 1 second, but search for "wikipedia" is 10 seconds
 
-<p align="center">
-  <img src="https://raw.githubusercontent.com/jacobr4d/tinysearchpython/master/docs/iter_1_count_vs_time.png">
-  <img src="https://raw.githubusercontent.com/jacobr4d/tinysearchpython/master/docs/iter_1_frontier_vs_time.png">
-</p>
+### Summary
+- Space
+  - Our estimate of space requirements was a great conservative estimate
+- Time
+  - crawler needs to be > 10x faster
+  - indexer needs to be > 2x faster
+  - database upload is good
+  - search needs to be redesigned to be more scalable
+
+# Second Iteration

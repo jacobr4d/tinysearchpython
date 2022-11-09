@@ -1,3 +1,5 @@
+from requests.utils import quote
+
 class Url:
     """
     scheme    {http or https}
@@ -21,7 +23,7 @@ class Url:
         if "#" in url:
             url = url[:url.index("#")]
         if "/" in url:
-            self.path = url[url.index("/"):]
+            self.path = quote(url[url.index("/"):]) # be safe with unicode
             url = url[:url.index("/")]
         else:
             self.path = "/"

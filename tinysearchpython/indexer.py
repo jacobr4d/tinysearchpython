@@ -1,6 +1,7 @@
 import sys
 import argparse
 import math
+import time
 from tempfile import NamedTemporaryFile
 from fileinput import input
 from glob import glob
@@ -37,6 +38,7 @@ def save_rdd(rdd, file_name):
             file.write(line)
 
 
+start_time = time.time()
 # Batch compute tfs
 # lines are word <space> url
 hits = sc.textFile(args.hits_path)
@@ -109,3 +111,4 @@ for i in range(5):
 
 formatted_rank = rank.map(lambda line: " ".join([str(x) for x in line]))
 save_rdd(formatted_rank, args.ranks_path)
+print(f"Execution time {time.time() - start_time}")

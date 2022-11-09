@@ -88,7 +88,7 @@ with open(args.urls_path, "w") as urls_file, open(args.hits_path, "w") as hits_f
             logging.info(f"filtered: no content-type {url}")
             continue
         if not head.headers['content-type'].startswith("text/html"):
-            logging.info(f"filtered: bad content-type {url}")
+            logging.info(f"filtered: non-html content-type {url}")
             continue
         if 'content-length' not in head.headers:
             logging.info(f"filtered: no content-length {url}")

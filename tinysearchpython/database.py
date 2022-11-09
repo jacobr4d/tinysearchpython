@@ -1,6 +1,7 @@
 import sys
 import argparse
 import sqlite3
+import time
 
 # for other classes to use database
 class Database:
@@ -41,6 +42,8 @@ class Database:
 
 # upload data by running this file
 if __name__ == "__main__":
+    start_time = time.time()
+
     # database config is args
     parser = argparse.ArgumentParser(prog="tinysearchpython database", description="stores queryable search data")
     parser.add_argument("--tfs", dest="tfs_path", default="tfs", help="location to get tfs")
@@ -67,3 +70,5 @@ if __name__ == "__main__":
             cur.execute('INSERT INTO rank (url, val) VALUES (?,?)', line.split())
     cur.execute('COMMIT')
     con.close()
+
+    print(f"Database upload time {(time.time() - start_time):.2f}")
