@@ -7,7 +7,6 @@ A small and understandable HTML page crawler, indexer, and search engine
 git clone https://github.com/jacobr4d/tinysearchpython.git
 cd tinysearchpython
 python tinysearchpython/crawler.py -v
-python tinysearchpython/crawler.py -v
 python tinysearchpython/indexer.py
 python tinysearchpython/database.py
 python tinysearchpython/searcher.py -v
