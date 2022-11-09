@@ -78,6 +78,7 @@ If we want to index 1M pages in 12 hrs, then we need to generate search data for
   - Indexer needs to process > 23 pages / second
 
 # First Iteration
+commit 991a2de631b331e30a1b3a6515e0d52d85f09503
 ## Detailed Design
 - Crawler is simple, in that
   - all crawler state is in memory (url_frontier, urls_seen, ...)
