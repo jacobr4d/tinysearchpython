@@ -14,10 +14,15 @@ class Robot:
     def __init__(self, url):
         self.delay = 1
         self.disallowed_paths = set()
+        self.last_accessed = time.time() - self.delay - 1
 
         robot_url = copy.copy(url)
         robot_url.path = "/robots.txt"
-        get = requests.get(robot_url, headers={"user-agent": "tinysearchpython"}, timeout=3, allow_redirects=True)
+        try:
+            get = requests.get(robot_url, headers={"user-agent": "tinysearchpython"}, timeout=3, allow_redirects=True)
+        except Exception as e:
+            print("Exception in Robot constructor:", e)
+            return
 
         user_agent = ""
         for line in get.text.splitlines():
@@ -35,7 +40,7 @@ class Robot:
                     self.disallowed_paths.add(line.split(":")[1].strip())
 
         # dont want to delay on the request that made us download robots.txt
-        self.last_accessed = time.time() - self.delay
+        self.last_accessed = time.time() - self.delay - 1
 
     def delays(self):
         return time.time() - self.last_accessed < float(self.delay)

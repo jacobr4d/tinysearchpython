@@ -91,3 +91,8 @@ If we want to index 1M pages in 12 hrs, then we need to generate search data for
 </p>
 
 ## Quantitative Evalutation
+
+<p align="center">
+  <img src="https://raw.githubusercontent.com/jacobr4d/tinysearchpython/master/docs/iter_1_count_vs_time.png">
+  <img src="https://raw.githubusercontent.com/jacobr4d/tinysearchpython/master/docs/iter_1_froniter_vs_time.png">
+</p>

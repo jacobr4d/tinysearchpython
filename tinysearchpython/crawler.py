@@ -3,6 +3,7 @@ import re
 import atexit
 import argparse
 import logging
+import time
 
 import requests
 from lxml.html import iterlinks, make_links_absolute, fromstring
@@ -18,6 +19,7 @@ parser.add_argument("--urls", dest="urls_path", default="urls", help="location t
 parser.add_argument("--hits", dest="hits_path", default="hits", help="location to store hits")
 parser.add_argument("--links", dest="links_path", default="links", help="location to store links")
 parser.add_argument("--count", dest="count_path", default="count", help="location to final count of crawled docs")
+parser.add_argument("--log", dest="log_path", default="log", help="where to put log")
 parser.add_argument("--bpp", dest="page_size_limit_bytes", type=int, default=1000000, help="page size limit bytes (not processed if over)")
 parser.add_argument("--hpp", dest="hits_per_page_limit", type=int, default=1000000, help="hits per page limit (subset processed if over)")
 parser.add_argument("--lpp", dest="links_per_page_limit", type=int, default=1000000, help="links per page limit (subset processed if over)")
@@ -57,7 +59,7 @@ atexit.register(write_count)
 atexit.register(log)
 
 # crawl
-with open(args.urls_path, "w") as urls_file, open(args.hits_path, "w") as hits_file, open(args.links_path, "w") as links_file:
+with open(args.urls_path, "w") as urls_file, open(args.hits_path, "w") as hits_file, open(args.links_path, "w") as links_file, open(args.log_path, "w") as log_file:
     while (True):
         url = frontier.pop(0)
 
@@ -74,7 +76,11 @@ with open(args.urls_path, "w") as urls_file, open(args.hits_path, "w") as hits_f
             continue
             
         # HEAD check
-        head = requests.head(url, headers={"user-agent": "tinysearchpython"}, timeout=3, allow_redirects=True)
+        try:
+            head = requests.head(url, headers={"user-agent": "tinysearchpython"}, timeout=3, allow_redirects=True)
+        except Exception as e:
+            print("Exception in head:", e)
+            continue
         if head.status_code != requests.codes.ok:
             logging.info(f"filtered: head status code {head.status_code} {url}")
             continue
@@ -92,13 +98,18 @@ with open(args.urls_path, "w") as urls_file, open(args.hits_path, "w") as hits_f
             continue
         
         # GET
-        get = requests.get(url, headers={"user-agent": "tinysearchpython"}, timeout=3, allow_redirects=True)
+        try:
+            get = requests.get(url, headers={"user-agent": "tinysearchpython"}, timeout=3, allow_redirects=True)
+        except Exception as e:
+            print("Exception in get:", e)
+            continue
         if get.status_code != requests.codes.ok:
             logging.info(f"filtered: get status code {get.status_code} {url}")
             continue
         robot.update_last_accessed()
         logging.info(f"{count} downloaded: {url}")
         count += 1
+        print(time.time(), len(frontier), len(seen), len(robots), count, file=log_file)
 
         # parse links
         html = fromstring(get.text)
