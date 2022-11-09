@@ -94,17 +94,18 @@ If we want to index 1M pages in 12 hrs, then we need to generate search data for
 
 ## Quantitative Evalutation
 We did a test crawl of 1000 pages from the seed "https://wikipedia.org" 
-### Space
-- Crawl data is ~87 MB (87 KB / page)
-- Search data is ~32 MB (32 KB / page)
-- Database size is ~32 MB (32 KB / page)
-### Time
-- The crawler crawled 1000 pages in ~ 1 pages / second
-- The indexer indexed 1000 pages in 89 seconds giving an average speed of 11 pages / second
-- Database uploaded 1000 pages in 0.7 seconds giving an average speed of 1,400 pages / second
-- With a corpus of 1000 pages, search for uncommon words are < 1 second, but search for "wikipedia" is 10 seconds
+### Results
+- Space
+  - Crawl data is ~87 MB (87 KB / page)
+  - Search data is ~32 MB (32 KB / page)
+  - Database size is ~32 MB (32 KB / page)
+- Time
+  - The crawler crawled 1000 pages in ~ 1 pages / second
+  - The indexer indexed 1000 pages in 89 seconds giving an average speed of 11 pages / second
+  - Database uploaded 1000 pages in 0.7 seconds giving an average speed of 1,400 pages / second
+  - With a corpus of 1000 pages, search for uncommon words are < 1 second, but search for "wikipedia" is 10 seconds
 
-### Summary
+### Conclusions
 - Space
   - Our estimate of space requirements was a great conservative estimate
 - Time
