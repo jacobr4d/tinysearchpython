@@ -36,7 +36,8 @@ python tinysearchpython/searcher.py -v
 </p>
 
 ## Requirements Estimates
-### Storage
+### Analysis
+#### Space
 If we want 1M pages, asssuming 1K words per page, we will have 1B hits:
 <p align="center">
 1M pages * 1K words/page = 1B hits
@@ -59,21 +60,22 @@ Therefore the crawl data will be 150 GB in total:
 </p>
 Assuming that the search data will be smaller than the crawl data, we will need another 150 GB for search data. Therefore we will need 300 GB total for the file system, but since we don't want to get close to the limit, we should get a file stystem with a capacity for 400GB. Also, our database must store 150 GB of data, so its capacity should be > 200 GB.
 
-### Speed
+#### Time
 If we want to crawl 1M pages in 12 hrs, then we need to generate crawl data for a page at a rate of:
 <p align="center">
 1M pages/12hrs = ~ 23 pages / second
 </p>
 If we want to index 1M pages in 12 hrs, then we need to generate search data for a page at the same rate.
 
-
-### Summmary
-- Our crawler needs to download and process > 23 pages / second
-- Our indexer needs to process > 23 pages / second
-- Our file system needs capacity > 400 GB
-- Our database capacity needs to be > 200 GB
-- Our estimate for crawl data will be about 150GB (150 KB / page)
-- Our estimate for search data will be about 150GB (150 KB / page)
+### Conclusion
+- Space
+  - Our estimate for crawl data will be about 150GB (150 KB / page)
+  - Our estimate for search data will be about 150GB (150 KB / page)
+  - Therefore our file system needs capacity > 400 GB
+  - Therefore our database needs capacity > 200 GB
+- Time
+  - Crawler needs to download and process > 23 pages / second
+  - Indexer needs to process > 23 pages / second
 
 # First Iteration
 ## Detailed Design
