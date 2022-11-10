@@ -10,10 +10,10 @@ from pyspark import SparkContext, SparkConf
 
 # indexer config is args
 parser = argparse.ArgumentParser(prog="tinysearchpython indexer", description="indexes from crawl data")
-parser.add_argument("--urls", dest="urls_path", default="urls", help="location to get crawled urls")
-parser.add_argument("--hits", dest="hits_path", default="hits", help="location to get hits")
-parser.add_argument("--links", dest="links_path", default="links", help="location to get links")
-parser.add_argument("--count", dest="count_path", default="count", help="location to get count of crawled docs")
+parser.add_argument("--urls", dest="urls_path", default="urls", help="dir to get crawled urls")
+parser.add_argument("--hits", dest="hits_path", default="hits", help="dir to get hits")
+parser.add_argument("--links", dest="links_path", default="links", help="dir to get links")
+# parser.add_argument("--count", dest="count_path", default="count", help="dir to get count of crawled docs")
 parser.add_argument("--tfs", dest="tfs_path", default="tfs", help="location to put tfs")
 parser.add_argument("--idfs", dest="idfs_path", default="idfs", help="location to put idfs")
 parser.add_argument("--ranks", dest="ranks_path", default="ranks", help="location to put ranks")
@@ -27,6 +27,14 @@ appName="tinysearchpython_indexer"
 master="local"
 conf = SparkConf().setAppName(appName).setMaster(master)
 sc = SparkContext(conf=conf)
+
+# # TEST TODO REMOVE
+# crawled_urls = sc.textFile(args.urls_path)
+# print(f"{crawled_urls.count()} crawled urls")
+# dist = crawled_urls.distinct()
+# dups = crawled_urls.subtract(dist)
+# print(dups.take(5))
+# exit(0)
 
 # Helper function to save RDD to file
 def save_rdd(rdd, file_name):
