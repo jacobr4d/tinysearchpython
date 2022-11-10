@@ -2,6 +2,7 @@
 import copy
 import requests
 import time
+import logging
 
 from url import *
 
@@ -19,10 +20,11 @@ class Robot:
         robot_url = copy.copy(url)
         robot_url.path = "/robots.txt"
         try:
-            get = requests.get(robot_url, headers={"user-agent": "tinysearchpython"}, timeout=3, allow_redirects=True)
+            get = requests.get(str(robot_url), headers={"user-agent": "tinysearchpython", "connection": "close"}, timeout=1, allow_redirects=True)
         except Exception as e:
-            print("Exception in Robot constructor:", e)
+            logging.info(f"using default robot: robot request failed: {e}")
             return
+        get.close()
 
         user_agent = ""
         for line in get.text.splitlines():

@@ -7,6 +7,7 @@ from url import *
 from robot import *
 
 parser = argparse.ArgumentParser(prog="frontier", description="frontier for crawler")
+# parser.add_argument("--threads", type=int, default=1, help="number of threads to keep connections with")
 parser.add_argument("--port", default="9000", help="port to listen on")
 parser.add_argument("--seeds", dest="seeds_path", default="seeds", help="location to get seed urls")
 parser.add_argument("-v", "--verbose", help="increase output verbosity", action="store_true")
