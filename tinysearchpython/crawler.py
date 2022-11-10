@@ -4,9 +4,10 @@ import atexit
 import argparse
 import logging
 import time
+import threading
 
 import requests
-from lxml.html import iterlinks, make_links_absolute, fromstring
+import lxml.html
 
 from url import * 
 from robot import *
@@ -14,7 +15,7 @@ from words import stem
 
 # crawler config is args
 parser = argparse.ArgumentParser(prog="tinysearchpython crawl", description="crawls the web")
-parser.add_argument("--seeds", dest="seeds_path", default="seeds", help="location to get seed urls")
+parser.add_argument("--frontier", default="http://localhost:9000", help="location of frontier")
 parser.add_argument("--urls", dest="urls_path", default="urls", help="location to store crawled urls")
 parser.add_argument("--hits", dest="hits_path", default="hits", help="location to store hits")
 parser.add_argument("--links", dest="links_path", default="links", help="location to store links")
@@ -29,8 +30,6 @@ if args.verbose:
     logging.basicConfig(level=logging.INFO)
 
 # crawl state
-frontier = [Url(x.strip()) for x in open(args.seeds_path).readlines()]
-seen = set(str(x) for x in frontier)
 robots = {}
 count = 0
 
@@ -42,26 +41,18 @@ def write_count():
 # dump log at end
 def log():
     print("SUMMARY")
-    print("CONFIG")
-    print(f"seeds path {args.seeds_path}")
-    print(f"hits path {args.hits_path}")
-    print(f"links path {args.links_path}")
-    print(f"page size limit bytes {args.page_size_limit_bytes}")
-    print(f"hits per page limit {args.hits_per_page_limit}")
-    print(f"links per page limit {args.links_per_page_limit}")
-    print("CRAWL STATE")
-    print(f"frontier list size {len(frontier)}")
-    print(f"seen set size {len(seen)}")
     print(f"robots map size {len(robots)}")
     print(f"downloaded count {count}")
 
 atexit.register(write_count)
 atexit.register(log)
 
+new_urls = []
+
 # crawl
 with open(args.urls_path, "w") as urls_file, open(args.hits_path, "w") as hits_file, open(args.links_path, "w") as links_file, open(args.log_path, "w") as log_file:
     while (True):
-        url = frontier.pop(0)
+        url = Url(requests.post(f"{args.frontier}/pop", timeout=3).json()["url"])
 
         # ROBOTS.TXT check
         if url.host not in robots:
@@ -72,7 +63,7 @@ with open(args.urls_path, "w") as urls_file, open(args.hits_path, "w") as hits_f
             continue
         if robot.delays():
             logging.info(f"delayed: {robot.last_accessed} {robot.delay} {url}")
-            frontier.append(url)
+            new_urls.append(str(url))
             continue
             
         # HEAD check
@@ -109,35 +100,33 @@ with open(args.urls_path, "w") as urls_file, open(args.hits_path, "w") as hits_f
         robot.update_last_accessed()
         logging.info(f"{count} downloaded: {url}")
         count += 1
-        print(time.time(), len(frontier), len(seen), len(robots), count, file=log_file)
+        print(time.time(), len(robots), count, file=log_file)
 
-        # parse links
-        html = fromstring(get.text)
-        html.make_links_absolute(str(url))
-        links_parsed = 0
-        # give every page a link to itself, so that it is aknowledged in pagerank
-        print(url, file=urls_file)
-        for _, _, link, _ in html.iterlinks():
-            if links_parsed > args.links_per_page_limit:
-                break
+        # # parse links
+        doc = lxml.html.fromstring(get.text)
+        doc.make_links_absolute(str(url), resolve_base_href=True)
+
+        for _, _, link, _ in doc.iterlinks():
             try:
                 new_url = Url(link)
             except Exception as e:
                 logging.info(f"filtered: malformed url {link}")
                 continue
-            else:
-                print(url, new_url, file=links_file)
-                links_parsed += 1
-                if not str(new_url) in seen:
-                    frontier.append(new_url)
-                    seen.add(str(new_url))
+            new_urls.append(str(new_url))
+        
+        # check if urls seen
+        seen_bits = requests.post(f"{args.frontier}/seen", json={"urls": new_urls}, timeout=3).json()["seen"]
+        urls_to_add = [new_urls[i] for i in range(len(seen_bits)) if seen_bits[i] == 0]
+        # give queue new urls
+        requests.post(f"{args.frontier}/push", json={"urls": urls_to_add}, timeout=3)
+        new_urls = []
 
-        links_parsed = 0
-        for word in get.text.split():
-            if links_parsed > args.links_per_page_limit:
-                break
-            word = stem(word)
-            if word == None:
-                continue
-            print(word, url, file=hits_file)
-            links_parsed += 1
+        # hits_parsed = 0
+        # for word in get.text.split():
+        #     if hits_parsed > args.hits_per_page_limit:
+        #         break
+        #     word = stem(word)
+        #     if word == None:
+        #         continue
+        #     print(word, url, file=hits_file)
+        #     hits_parsed += 1
