@@ -28,10 +28,10 @@ for url in [str(Url(x.strip())) for x in open(args.seeds_path).readlines()]:
 seen_urls_lock = Lock()
 seen_urls = PDict("seen_urls", "seen_urls_name", multithreading=True)       # using perisisten dict, but only using key SET functionality :O
 for url in [str(Url(x.strip())) for x in open(args.seeds_path).readlines()]:
-seen_urls[url] = "P"
+    seen_urls[url] = "P"
 
 robots_lock = Lock()
-robots = {}
+robots = PDict("robots", "robots_name", multithreading=True)
 
 # accepts list of urls as JSON :)
 @app.route("/push", methods=["POST"])
@@ -59,9 +59,11 @@ def pop():
 def seen():
     seen_urls_lock.acquire()
     urls = request.get_json()["urls"]
-    ret = {"seen": [1 if x in seen_urls else 0 for x in urls]}
+    ret_list = []
     for x in urls:
+        ret_list.append(1 if x in seen_urls else 0)
         seen_urls[x] = "P"
+    ret = {"seen": ret_list}
     # seen_urls.update(urls)
     seen_urls_lock.release()
     return ret
@@ -71,9 +73,13 @@ def robot():
     robots_lock.acquire()
     url = request.get_json()["url"]
     url_obj = Url(url)
-    if url_obj.host not in robots:
-        robots[url_obj.host] = Robot(url_obj)
-    robot = robots[url_obj.host]
+    url_obj.path = "/robots.txt"
+    robot = None
+    if str(url_obj) in robots:
+        robot = robot_from_string(robots[str(url_obj)])
+    else:
+        robot = robot_from_robot_url(str(url_obj))
+        robots[str(url_obj)] = str(robot)
     ret = None
     if robot.disallows(url_obj):
         ret = {"message": "disallowed"}
@@ -81,6 +87,7 @@ def robot():
         ret = {"message": "delayed"}
     else:
         robot.update_last_accessed()
+        robots[str(url_obj)] = str(robot)
         ret = {"message": "allowed"}
     robots_lock.release()
     return ret
