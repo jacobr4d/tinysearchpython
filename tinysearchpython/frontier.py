@@ -20,7 +20,6 @@ if args.verbose:
 app = Flask(__name__)
 
 # frontier state (a list of string)
-frontier_lock = Lock()
 frontier = SQLiteQueue("frontier", auto_commit=True, multithreading=True)
 for url in [str(Url(x.strip())) for x in open(args.seeds_path).readlines()]:
     frontier.put(url)
@@ -36,44 +35,43 @@ robots = PDict("robots", "robots_name", multithreading=True)
 # accepts list of urls as JSON :)
 @app.route("/push", methods=["POST"])
 def push():
-    frontier_lock.acquire()
+    # frontier_lock.acquire()
     if not request.is_json:
         raise Exception("request is not json!")
     for url in request.get_json()["urls"]:
         frontier.put(url)
     # frontier.extend(request.get_json()["urls"])
-    frontier_lock.release()
+    # frontier_lock.release()
     return ""
 
 # reuturns head of queue as JSON
 @app.route("/pop", methods=["POST"])
 def pop():
-    frontier_lock.acquire()
+    # frontier_lock.acquire()
     logging.info(f"frontier {len(frontier)} seen {len(seen_urls)}")
     ret = {"url": frontier.get()}
-    frontier_lock.release()
+    # frontier_lock.release()
     return ret
 
-# return bitmask for seen already, mark all as seen hereafter
+# update list with unseen urls
 @app.route("/seen", methods=["POST"])
 def seen():
-    seen_urls_lock.acquire()
+    # seen_urls_lock.acquire()
     urls = request.get_json()["urls"]
-    ret_list = []
     for x in urls:
-        ret_list.append(1 if x in seen_urls else 0)
-        seen_urls[x] = "P"
-    ret = {"seen": ret_list}
-    # seen_urls.update(urls)
-    seen_urls_lock.release()
-    return ret
+        seen_urls_lock.acquire()
+        if x not in seen_urls:
+            seen_urls[x] = "P"
+            frontier.put(x)
+        seen_urls_lock.release()
+    return ""
 
 @app.route("/robot", methods=["POST"])
 def robot():
-    robots_lock.acquire()
     url = request.get_json()["url"]
     url_obj = Url(url)
     url_obj.path = "/robots.txt"
+    robots_lock.acquire()
     robot = None
     if str(url_obj) in robots:
         robot = robot_from_string(robots[str(url_obj)])

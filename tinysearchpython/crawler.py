@@ -99,24 +99,19 @@ def crawl(args, thread_id):
 
                     # CHECK if URLS are SEEN
                     try:
-                        seen_bits = session.post(f"{args.frontier}/seen", json={"urls": new_urls}, timeout=10).json()["seen"]
+                        session.post(f"{args.frontier}/seen", json={"urls": new_urls}, timeout=10)
                     except Exception as e:
                         logging.error(f"exception in seen: {e}")
                         continue
-                    urls_to_add = [new_urls[i] for i in range(len(seen_bits)) if seen_bits[i] == 0]
-                    # give queue new urls
-                    try:
-                        session.post(f"{args.frontier}/push", json={"urls": urls_to_add}, timeout=10)
-                    except Exception as e:
-                        logging.error(f"exception in push: {e}")
-                        continue
+                    # urls_to_add = [new_urls[i] for i in range(len(seen_bits)) if seen_bits[i] == 0]
+                    # # give queue new urls
+                    # try:
+                    #     session.post(f"{args.frontier}/push", json={"urls": urls_to_add}, timeout=10)
+                    # except Exception as e:
+                    #     logging.error(f"exception in push: {e}")
+                    #     continue
                     new_urls = []
 
-                    # for word in get.text.split():
-                    #     word = stem(word)
-                    #     if word == None:
-                    #         continue
-                    #     print(word, url, file=hits_file, flush=True)
                     hits_file.writelines([f"{stem(word)} {str(url)}\n" for word in get.text.split() if stem(word)])
                     hits_file.flush()
 
