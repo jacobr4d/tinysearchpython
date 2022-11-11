@@ -2,6 +2,8 @@ import sys
 import argparse
 from flask import Flask, render_template, request
 import logging
+from threading import Lock
+from persistqueue import SQLiteQueue, PDict
 
 from url import * 
 from robot import *
@@ -18,46 +20,70 @@ if args.verbose:
 app = Flask(__name__)
 
 # frontier state (a list of string)
-frontier = [str(Url(x.strip())) for x in open(args.seeds_path).readlines()]
-seen_urls = set(x for x in frontier)
+frontier_lock = Lock()
+frontier = SQLiteQueue("frontier", auto_commit=True, multithreading=True)
+for url in [str(Url(x.strip())) for x in open(args.seeds_path).readlines()]:
+    frontier.put(url)
+
+seen_urls_lock = Lock()
+seen_urls = PDict("seen_urls", "seen_urls_name", multithreading=True)       # using perisisten dict, but only using key SET functionality :O
+for url in [str(Url(x.strip())) for x in open(args.seeds_path).readlines()]:
+seen_urls[url] = "P"
+
+robots_lock = Lock()
 robots = {}
 
 # accepts list of urls as JSON :)
 @app.route("/push", methods=["POST"])
 def push():
+    frontier_lock.acquire()
     if not request.is_json:
         raise Exception("request is not json!")
-    frontier.extend(request.get_json()["urls"])
+    for url in request.get_json()["urls"]:
+        frontier.put(url)
+    # frontier.extend(request.get_json()["urls"])
+    frontier_lock.release()
     return ""
 
 # reuturns head of queue as JSON
 @app.route("/pop", methods=["POST"])
 def pop():
+    frontier_lock.acquire()
     logging.info(f"frontier {len(frontier)} seen {len(seen_urls)}")
-    return {"url": frontier.pop(0)}
+    ret = {"url": frontier.get()}
+    frontier_lock.release()
+    return ret
 
 # return bitmask for seen already, mark all as seen hereafter
 @app.route("/seen", methods=["POST"])
 def seen():
+    seen_urls_lock.acquire()
     urls = request.get_json()["urls"]
     ret = {"seen": [1 if x in seen_urls else 0 for x in urls]}
-    seen_urls.update(urls)
+    for x in urls:
+        seen_urls[x] = "P"
+    # seen_urls.update(urls)
+    seen_urls_lock.release()
     return ret
 
 @app.route("/robot", methods=["POST"])
 def robot():
+    robots_lock.acquire()
     url = request.get_json()["url"]
     url_obj = Url(url)
     if url_obj.host not in robots:
         robots[url_obj.host] = Robot(url_obj)
     robot = robots[url_obj.host]
+    ret = None
     if robot.disallows(url_obj):
-        return {"message": "disallowed"}
+        ret = {"message": "disallowed"}
     if robot.delays():
-        return {"message": "delayed"}
+        ret = {"message": "delayed"}
     else:
         robot.update_last_accessed()
-        return {"message": "allowed"}
+        ret = {"message": "allowed"}
+    robots_lock.release()
+    return ret
 
 
 app.run(host='0.0.0.0', port=args.port)

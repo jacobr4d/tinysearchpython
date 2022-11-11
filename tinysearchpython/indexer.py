@@ -29,12 +29,12 @@ conf = SparkConf().setAppName(appName).setMaster(master)
 sc = SparkContext(conf=conf)
 
 # # TEST TODO REMOVE
-# crawled_urls = sc.textFile(args.urls_path)
-# print(f"{crawled_urls.count()} crawled urls")
-# dist = crawled_urls.distinct()
-# dups = crawled_urls.subtract(dist)
-# print(dups.take(5))
-# exit(0)
+crawled_urls = sc.textFile(args.urls_path)
+print(f"{crawled_urls.count()} crawled urls")
+dist = crawled_urls.distinct()
+dups = crawled_urls.subtract(dist)
+print(dups.take(5))
+exit(0)
 
 # Helper function to save RDD to file
 def save_rdd(rdd, file_name):

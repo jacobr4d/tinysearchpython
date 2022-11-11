@@ -15,7 +15,6 @@ from url import *
 from robot import *
 from words import stem
 
-
 def crawl(args, thread_id):
     with open(f"{args.urls_path}/{uuid.uuid1()}", "w") as urls_file:
         with open(f"{args.hits_path}/{uuid.uuid1()}", "w") as hits_file:
