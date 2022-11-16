@@ -44,3 +44,6 @@ class Url:
 
     def __str__(self):
         return f"{self.scheme}://{self.host}:{self.port}{self.path}"
+
+if __name__ == "__main__":
+    url = Url("thing")

@@ -148,6 +148,9 @@ if __name__ == "__main__":
     if args.verbose:
         logging.basicConfig(level=logging.INFO)
 
+    # frontier
+    # seen_urls
+    # robots 
     frontier = SQLiteQueue("frontier", auto_commit=True, multithreading=True)
     for url in [str(Url(x.strip())) for x in open(args.seeds_path).readlines()]:
         frontier.put(url)
