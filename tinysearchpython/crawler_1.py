@@ -18,6 +18,7 @@ import ssl
 import uvloop
 import signal
 
+# endpoints
 REDIS_URL = "redis://localhost"        
 REDIS_NUM_CRAWLED = "crawler:num_crawled"
 REDIS_FRONTIER = "crawler:frontier"           # string set
@@ -54,6 +55,11 @@ aredis = aioredis.from_url(REDIS_URL).client()
 # init some variables for the crawl
 sredis.sadd(REDIS_FRONTIER, *[str(Url(x.strip())) for x in open(args.seeds_path).readlines()])
 sredis.set(REDIS_NUM_CRAWLED, "0")
+
+# file pointers (keep number limited, or beware)
+urls_file = open(args.urls_path, "w")
+links_file = open(args.links_path, "w")
+hits_file = open(args.hits_path, "w")
 
 running = True
 async def loop():
@@ -119,8 +125,8 @@ async def loop():
                     if response.status != 200:
                         logging.debug(f"filtered: non 200 get {str(url)}")
                         continue
-                    # log url
-                    # await urls_file.writelines([str(url), "\n"])
+                    # record url
+                    urls_file.write(str(url) + "\n")
                     logging.info(await aredis.incr(REDIS_NUM_CRAWLED))
                     # parse links
                     page = await response.text()
@@ -132,7 +138,8 @@ async def loop():
                         except Exception as e:
                             logging.debug(f"filtered: malformed url {link[:20]}...")
                             continue
-                        # await links_file.writelines([str(url), str(new_url), "\n"])
+                        # record link
+                        links_file.write(f"{str(url)} {str(new_url)}\n")
                         new_urls.append(str(new_url))
                     # add new urls to frontier
                     new_urls = list(set(new_urls))
@@ -143,8 +150,11 @@ async def loop():
                             sredis.sadd(REDIS_SEEN_URLS, *urls_to_add)
                             await aredis.sadd(REDIS_FRONTIER, *urls_to_add)
                     new_urls = []
-                    # log hits
-                    # await hits_file.writelines([f"{stem(word)} {str(url)}\n" for word in page.split() if stem(word)])
+                    # record hits
+                    for word in page.split():
+                        lemn = stem(word)
+                        if lemn:
+                            hits_file.write(f"{lemn} {str(url)}\n")
             except Exception as e:
                 logging.info(f"get exception: {e} {str(url)}")
                 continue
@@ -157,9 +167,12 @@ async def main():
     await asyncio.gather(*jobs)
 def signal_handler(signal, frame):
     global running
-    print("shutting down")
+    logging.info("shutting down")
     running = False
 signal.signal(signal.SIGINT, signal_handler)
 asyncio.run(main())
 asyncio.run(aredis.close())
-print("done")
+urls_file.close()
+links_file.close()
+hits_file.close()
+logging.info("done")
