@@ -16,6 +16,7 @@ from words import stem
 import atexit
 import ssl
 import uvloop
+import signal
 
 REDIS_URL = "redis://localhost"        
 REDIS_NUM_CRAWLED = "crawler:num_crawled"
@@ -27,7 +28,7 @@ REDIS_ACCESSES = "crawler:domain_accesses"    # host -> time: str
 # config is arguments
 parser = argparse.ArgumentParser(prog="tinysearchpython crawl", description="crawls the web")
 parser.add_argument("--seeds", dest="seeds_path", default="seeds", help="location to get seed urls")
-parser.add_argument("-c", "--concurrency", dest="concurrency", type=int, default=64, help="number of concurrent fetch, process, repeat, loops")
+parser.add_argument("-c", "--concurrency", dest="concurrency", type=int, default=64, help="number of loops to do concurrently")
 parser.add_argument("--urls", dest="urls_path", default="urls", help="dir to store crawled urls")
 parser.add_argument("--hits", dest="hits_path", default="hits", help="dir to store hits")
 parser.add_argument("--links", dest="links_path", default="links", help="location to store links")
@@ -40,21 +41,25 @@ if args.debug:
 elif args.verbose:
     logging.basicConfig(level=logging.INFO)
 
-# synchronous redis endpoint
+# set event loop to uvloop, supposed to be fast
+loop = uvloop.new_event_loop()
+asyncio.set_event_loop(loop)
+
+# synchronous redis connection
 sredis = redis.Redis()  
 
-# asynchronous redis endpoint
+# asynchronous redis connection
 aredis = aioredis.from_url(REDIS_URL).client()
 
-# init redis variables for crawl
+# init some variables for the crawl
 sredis.sadd(REDIS_FRONTIER, *[str(Url(x.strip())) for x in open(args.seeds_path).readlines()])
 sredis.set(REDIS_NUM_CRAWLED, "0")
 
+running = True
 async def loop():
-
     new_urls = []
     async with ClientSession(connector=aiohttp.TCPConnector(force_close=True)) as session:
-        while True:
+        while running:
             # get url
             burl = await aredis.spop(REDIS_FRONTIER)
             if not burl:
@@ -87,7 +92,7 @@ async def loop():
             # head tests 
             # TO:DO allow pages with no content-length 
             try:
-                async with session.head(str(url), ssl=False) as response:
+                async with session.head(str(url), ssl=False, timeout=10) as response:
                     logging.debug(f"sending head {str(url)}")
                     if response.status != 200:
                         logging.debug(f"filtered: non 200 head {str(url)}")
@@ -109,7 +114,7 @@ async def loop():
                 continue
             # get
             try:
-                async with session.get(str(url), ssl=False) as response:
+                async with session.get(str(url), ssl=False, timeout=10) as response:
                     logging.debug(f"sending get {str(url)}")
                     if response.status != 200:
                         logging.debug(f"filtered: non 200 get {str(url)}")
@@ -146,9 +151,15 @@ async def loop():
 
 # 100 urls in 1: ? 2: 40s, 4: 30s, 8: 9s, 16: 6s
 # 500 urls in 16: 42s, 32: 22s, 64: 17s, 128: (too many open files) [2x speedup from getting rid of tasks :0]
+# uvloop: 500 urls in 16: 30, 32: 19, 64: 18
 async def main():
-    jobs = [loop() for _ in range(2)]
+    jobs = [loop() for _ in range(args.concurrency)]
     await asyncio.gather(*jobs)
-
+def signal_handler(signal, frame):
+    global running
+    print("shutting down")
+    running = False
+signal.signal(signal.SIGINT, signal_handler)
 asyncio.run(main())
-print("finished")
+asyncio.run(aredis.close())
+print("done")

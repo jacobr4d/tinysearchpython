@@ -27,7 +27,7 @@ class Rules:
     async def fetch_from(self, session, ssl_context, url :str):
         robots_url = Robots.robots_url(url)
         try:
-            async with session.get(robots_url, ssl=ssl_context) as response:
+            async with session.get(robots_url, ssl=ssl_context, timeout=10) as response:
                 if response.status != 200:
                     logging.debug(f"using default robot: non 200 response: {robots_url}")
                     return
