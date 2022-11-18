@@ -1,143 +1,177 @@
 import sys
-import re
-import atexit
 import argparse
+import asyncio
+import aioredis
+import aiofiles
+from aiohttp import ClientSession, ClientTimeout, ClientError
+import aiohttp
+import lxml.html
+from typing import ByteString
+from robots import *
+import redis
+from url import *
 import logging
 import time
-from threading import Thread
-import uuid
-
-
-import requests
-import lxml.html
-
-from url import * 
-from robot import *
 from words import stem
+import atexit
+import ssl
+import uvloop
+import signal
 
-def crawl(args, thread_id):
-    with open(f"{args.urls_path}/{uuid.uuid1()}", "w") as urls_file:
-        with open(f"{args.hits_path}/{uuid.uuid1()}", "w") as hits_file:
-            with open(f"{args.links_path}/{uuid.uuid1()}", "w") as links_file:
+# endpoints
+REDIS_URL = "redis://localhost"        
+REDIS_NUM_CRAWLED = "crawler:num_crawled"
+REDIS_FRONTIER = "crawler:frontier"           # string set
+REDIS_SEEN_URLS = "crawler:seen_urls"         # string set
+REDIS_ROBOTS = "crawler:robots"               # host -> robots: str
+REDIS_ACCESSES = "crawler:domain_accesses"    # host -> time: str
 
-                new_urls = []
-                while (True):
-                    try:
-                        url = Url(session.post(f"{args.frontier}/pop", timeout=10).json()["url"])
-                    except Exception as e:
-                        logging.error(f"Exception in pop: {e}")
-                        continue
+# args to configure crawler
+parser = argparse.ArgumentParser(prog="tinysearchpython crawl", description="crawls the web")
+parser.add_argument("--seeds", dest="seeds_path", default="seeds", help="location to get seed urls")
+parser.add_argument("-c", "--concurrency", dest="concurrency", type=int, default=32, help="number of pages to process concurrently")
+parser.add_argument("--urls", dest="urls_path", default="urls", help="file to store crawled urls")
+parser.add_argument("--hits", dest="hits_path", default="hits", help="file to store hits")
+parser.add_argument("--links", dest="links_path", default="links", help="file to store links")
+parser.add_argument("--size", dest="page_size_limit_bytes", type=int, default=1000000, help="page size limit bytes (not retrieved if over)")
+parser.add_argument("-v", "--verbose", help="increased output verbosity", action="store_true")
+parser.add_argument("-d", "--debug", help="max output verbosity", action="store_true")
+args = parser.parse_args(sys.argv[1:])
+if args.debug:
+    logging.basicConfig(level=logging.DEBUG)
+elif args.verbose:
+    logging.basicConfig(level=logging.INFO)
 
-                    # ROBOTS.TXT check
-                    try:
-                        message = session.post(f"{args.frontier}/robot", json={"url": str(url)}, timeout=10).json()["message"]
-                    except Exception as e:
-                        logging.error(f"Exception in robot: {e}")
-                        continue
-                    if message == "disallowed":
-                        logging.info(f"filtered: disallowed {url}")
-                        continue
-                    if message == "delayed":
-                        logging.info(f"delayed: {url}")
+# set event loop to uvloop, supposed to be fast
+loop = uvloop.new_event_loop()
+asyncio.set_event_loop(loop)
+
+# synchronous redis connection
+sredis = redis.Redis()  
+
+# asynchronous redis connection
+aredis = aioredis.from_url(REDIS_URL).client()
+
+# init some variables for the crawl
+sredis.sadd(REDIS_FRONTIER, *[str(Url(x.strip())) for x in open(args.seeds_path).readlines()])
+sredis.set(REDIS_NUM_CRAWLED, "0")
+
+# file pointers (keep number limited, or beware)
+urls_file = open(args.urls_path, "w")
+links_file = open(args.links_path, "w")
+hits_file = open(args.hits_path, "w")
+
+running = True
+async def loop():
+    new_urls = []
+    async with ClientSession(connector=aiohttp.TCPConnector(force_close=True)) as session:
+        while running:
+            # get url
+            burl = await aredis.spop(REDIS_FRONTIER)
+            if not burl:
+                await asyncio.sleep(1)
+                continue
+            url = Url(burl.decode())
+            logging.debug(f"crawling {url}")
+            # robots tests
+            brules = await aredis.get(f"{REDIS_ROBOTS}:{url.host}")
+            if not brules:
+                logging.debug(f"no rules yet for {url.host}")
+                rules = Rules("tinypythoncrawler", 0)
+                await rules.fetch_from(session, False, str(url))
+                logging.debug(rules.serialize())
+                await aredis.set(f"{REDIS_ROBOTS}:{url.host}", rules.serialize())
+            else:
+                rules = Rules("tinypythoncrawler", 0)
+                rules.deserialize_from(brules.decode())
+            if rules.disallows(url):
+                logging.debug(f"disallowed {str(url)}")
+                continue
+            if rules.delay > 0:
+                baccessed = await aredis.get(f"{REDIS_ACCESSES}:{url.host}")
+                if await aredis.get(f"{REDIS_ACCESSES}:{url.host}") != None:
+                    if time.time() - float(baccessed.decode()) < rules.delay:
+                        logging.debug(f"delayed {str(url)}")
                         new_urls.append(str(url))
                         continue
-                        
-                    # HEAD check
-                    try:
-                        head = requests.head(url, headers={"user-agent": "tinysearchpython", "connection": "close"}, timeout=1, allow_redirects=True)
-                    except Exception as e:
-                        logging.info(f"filtered: head failed: {e}")
+                await aredis.set(f"{REDIS_ACCESSES}:{url.host}", time.time())
+            # head tests 
+            # TO:DO allow pages with no content-length 
+            try:
+                async with session.head(str(url), ssl=False, timeout=10) as response:
+                    logging.debug(f"sending head {str(url)}")
+                    if response.status != 200:
+                        logging.debug(f"filtered: non 200 head {str(url)}")
                         continue
-                    if head.status_code != requests.codes.ok:
-                        logging.info(f"filtered: head status code {head.status_code} {url}")
-                        head.close()
+                    if 'content-type' not in response.headers:
+                        logging.debug(f"filtered: no content-type {str(url)}")
                         continue
-                    if 'content-type' not in head.headers:
-                        logging.info(f"filtered: no content-type {url}")
-                        head.close()
+                    if not response.headers['content-type'].startswith("text/html"):
+                        logging.debug(f"filtered: non-html content-type {str(url)}")
                         continue
-                    if not head.headers['content-type'].startswith("text/html"):
-                        logging.info(f"filtered: non-html content-type {url}")
-                        head.close()
+                    if 'content-length' not in response.headers:
+                        logging.debug(f"filtered: no content-length {str(url)}")
                         continue
-                    if 'content-length' not in head.headers:
-                        logging.info(f"filtered: no content-length {url}")
-                        head.close()
+                    if int(response.headers['content-length']) > args.page_size_limit_bytes:
+                        logging.debug(f"filtered: big content-length {response.headers['content-length']} {url}")
                         continue
-                    if int(head.headers['content-length']) > args.page_size_limit_bytes:
-                        logging.info(f"filtered: bad content-length {head.headers['content-length']} {url}")
-                        head.close()
+            except Exception as e:
+                logging.info(f"head exception: {e} {str(url)}")
+                continue
+            # get
+            try:
+                async with session.get(str(url), ssl=False, timeout=10) as response:
+                    logging.debug(f"sending get {str(url)}")
+                    if response.status != 200:
+                        logging.debug(f"filtered: non 200 get {str(url)}")
                         continue
-                    head.close()
-                    
-                    # GET
-                    try:
-                        get = requests.get(url, headers={"user-agent": "tinysearchpython", "connection": "close"}, timeout=1, allow_redirects=True)
-                    except Exception as e:
-                        logging.info(f"filtered: get failed: {e}")
-                        continue
-                    if get.status_code != requests.codes.ok:
-                        logging.info(f"filtered: get status code {get.status_code} {url}")
-                        get.close()
-                        continue
-                    get.close()
-
-                    print(str(url), file=urls_file, flush=True)
-
-                    # LINKS
-                    doc = lxml.html.fromstring(get.text)
+                    # record url
+                    urls_file.write(str(url) + "\n")
+                    logging.info(await aredis.incr(REDIS_NUM_CRAWLED))
+                    # parse links
+                    page = await response.text()
+                    doc = lxml.html.fromstring(page)
                     doc.make_links_absolute(str(url), resolve_base_href=True)
-
                     for _, _, link, _ in doc.iterlinks():
                         try:
                             new_url = Url(link)
                         except Exception as e:
-                            logging.info(f"filtered: malformed url {link}")
+                            logging.debug(f"filtered: malformed url {link[:20]}...")
                             continue
+                        # record link
+                        links_file.write(f"{str(url)} {str(new_url)}\n")
                         new_urls.append(str(new_url))
-                        print(str(url), str(new_url), file=links_file, flush=True)
-
-                    # CHECK if URLS are SEEN
-                    try:
-                        session.post(f"{args.frontier}/seen", json={"urls": new_urls}, timeout=10)
-                    except Exception as e:
-                        logging.error(f"exception in seen: {e}")
-                        continue
-                    # urls_to_add = [new_urls[i] for i in range(len(seen_bits)) if seen_bits[i] == 0]
-                    # # give queue new urls
-                    # try:
-                    #     session.post(f"{args.frontier}/push", json={"urls": urls_to_add}, timeout=10)
-                    # except Exception as e:
-                    #     logging.error(f"exception in push: {e}")
-                    #     continue
+                    # add new urls to frontier
+                    new_urls = list(set(new_urls))
+                    if new_urls:
+                        res = sredis.smismember(REDIS_SEEN_URLS, *new_urls)
+                        urls_to_add = [new_urls[i] for i in range(len(res)) if not res[i]]
+                        if urls_to_add:
+                            sredis.sadd(REDIS_SEEN_URLS, *urls_to_add)
+                            await aredis.sadd(REDIS_FRONTIER, *urls_to_add)
                     new_urls = []
+                    # record hits
+                    for word in page.split():
+                        lemn = stem(word)
+                        if lemn:
+                            hits_file.write(f"{lemn} {str(url)}\n")
+            except Exception as e:
+                logging.info(f"get exception: {e} {str(url)}")
+                continue
 
-                    hits_file.writelines([f"{stem(word)} {str(url)}\n" for word in get.text.split() if stem(word)])
-                    hits_file.flush()
+async def main():
+    jobs = [loop() for _ in range(args.concurrency)]
+    await asyncio.gather(*jobs)
 
+def signal_handler(signal, frame):
+    global running
+    logging.info("shutting down")
+    running = False
 
-# crawler config is args
-parser = argparse.ArgumentParser(prog="tinysearchpython crawl", description="crawls the web")
-parser.add_argument("--threads", type=int, default=1, help="number of threads")
-parser.add_argument("--frontier", default="http://localhost:9000", help="location of frontier")
-parser.add_argument("--urls", dest="urls_path", default="urls", help="dir to store crawled urls")
-parser.add_argument("--hits", dest="hits_path", default="hits", help="dir to store hits")
-parser.add_argument("--links", dest="links_path", default="links", help="location to store links")
-# parser.add_argument("--count", dest="count_path", default="count", help="location to final count of crawled docs")
-# parser.add_argument("--log", dest="log_path", default="logs/logs", help="where to put log")
-parser.add_argument("--bpp", dest="page_size_limit_bytes", type=int, default=1000000, help="page size limit bytes (not processed if over)")
-parser.add_argument("-v", "--verbose", help="increase output verbosity", action="store_true")
-args = parser.parse_args(sys.argv[1:])
-if args.verbose:
-    logging.basicConfig(level=logging.INFO)
-
-urls_log = logging.StreamHandler()
-
-session = requests.Session()
-adapter = requests.adapters.HTTPAdapter(pool_connections=args.threads, pool_maxsize=args.threads)
-session.mount('http://', adapter)
-session.mount('https://', adapter)
-
-for i in range(args.threads):
-    t1 = Thread(target=crawl, args=(args, i))
-    t1.start()
+signal.signal(signal.SIGINT, signal_handler)
+asyncio.run(main())
+asyncio.run(aredis.close())
+urls_file.close()
+links_file.close()
+hits_file.close()
+logging.info("done")
