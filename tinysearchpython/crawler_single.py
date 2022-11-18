@@ -163,7 +163,6 @@ if __name__ == "__main__":
 
     procs = []
 
-
     for _ in range(args.procs):
         p = Process(target=send_threads, args=(args,robots_lock))
         p.start()
