@@ -1,6 +1,6 @@
 A small and understandable HTML page crawler, indexer, and search engine
 
-~ 370 lines (sloccount)
+~ 516 lines (sloccount)
 
 ## Demo
 ```bash
