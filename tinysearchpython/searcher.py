@@ -10,7 +10,7 @@ from database import *
 from words import stem
 
 parser = argparse.ArgumentParser(prog="tinysearchpython database", description="stores queryable search data")
-parser.add_argument("--database", dest="database_path", default="database", help="location to get database")
+parser.add_argument("--database", dest="database_path", default="data/database", help="location to get database")
 parser.add_argument("-v", "--verbose", help="increase output verbosity", action="store_true")
 args = parser.parse_args(sys.argv[1:])
 

@@ -20,19 +20,19 @@ import signal
 
 # endpoints
 REDIS_URL = "redis://localhost"        
-REDIS_NUM_CRAWLED = "crawler:num_crawled"
-REDIS_FRONTIER = "crawler:frontier"           # string set
-REDIS_SEEN_URLS = "crawler:seen_urls"         # string set
-REDIS_ROBOTS = "crawler:robots"               # host -> robots: str
-REDIS_ACCESSES = "crawler:domain_accesses"    # host -> time: str
+REDIS_NUM_CRAWLED = "crawler:num_crawled"     # VAR in DEFAULT MAP
+REDIS_FRONTIER = "crawler:frontier"           # SET
+REDIS_SEEN_URLS = "crawler:seen_urls"         # SET
+REDIS_ROBOTS = "crawler:robots"               # DEFAULT MAP (host:str -> rules:json-str)
+REDIS_ACCESSES = "crawler:domain_accesses"    # DEFAULT MAP (host:str -> time:str)
 
 # args to configure crawler
 parser = argparse.ArgumentParser(prog="tinysearchpython crawl", description="crawls the web")
 parser.add_argument("--seeds", dest="seeds_path", default="seeds", help="location to get seed urls")
 parser.add_argument("-c", "--concurrency", dest="concurrency", type=int, default=32, help="number of pages to process concurrently")
-parser.add_argument("--urls", dest="urls_path", default="urls", help="file to store crawled urls")
-parser.add_argument("--hits", dest="hits_path", default="hits", help="file to store hits")
-parser.add_argument("--links", dest="links_path", default="links", help="file to store links")
+parser.add_argument("--urls", dest="urls_path", default="data/urls", help="file to store crawled urls")
+parser.add_argument("--hits", dest="hits_path", default="data/hits", help="file to store hits")
+parser.add_argument("--links", dest="links_path", default="data/links", help="file to store links")
 parser.add_argument("--size", dest="page_size_limit_bytes", type=int, default=1000000, help="page size limit bytes (not retrieved if over)")
 parser.add_argument("-v", "--verbose", help="increased output verbosity", action="store_true")
 parser.add_argument("-d", "--debug", help="max output verbosity", action="store_true")

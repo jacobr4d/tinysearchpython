@@ -6,11 +6,19 @@ A small and understandable HTML page crawler, indexer, and search engine
 ```bash
 git clone https://github.com/jacobr4d/tinysearchpython.git
 cd tinysearchpython
+redis-server
 python tinysearchpython/crawler.py -v
+# press ^C to stop crawler
+ls -l data
+# urls hits links added
 python tinysearchpython/indexer.py
+ls -l data
+# tfs idfs ranks added
 python tinysearchpython/database.py
+ls -l data
+# SQLite database added
 python tinysearchpython/searcher.py -v
-# navigate to localhost:8000
+# open browser to localhost:8000
 ```
 
 

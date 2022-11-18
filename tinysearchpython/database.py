@@ -46,10 +46,10 @@ if __name__ == "__main__":
 
     # database config is args
     parser = argparse.ArgumentParser(prog="tinysearchpython database", description="stores queryable search data")
-    parser.add_argument("--tfs", dest="tfs_path", default="tfs", help="location to get tfs")
-    parser.add_argument("--idfs", dest="idfs_path", default="idfs", help="location to get idfs")
-    parser.add_argument("--ranks", dest="ranks_path", default="ranks", help="location to get ranks")
-    parser.add_argument("--database", dest="database_path", default="database", help="location to put database")
+    parser.add_argument("--tfs", dest="tfs_path", default="data/tfs", help="location to get tfs")
+    parser.add_argument("--idfs", dest="idfs_path", default="data/idfs", help="location to get idfs")
+    parser.add_argument("--ranks", dest="ranks_path", default="data/ranks", help="location to get ranks")
+    parser.add_argument("--database", dest="database_path", default="data/database", help="location to put database")
     # parser.add_argument("-v", "--verbose", help="increase output verbosity", action="store_true")
     args = parser.parse_args(sys.argv[1:])
 
