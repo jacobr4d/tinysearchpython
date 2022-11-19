@@ -132,6 +132,7 @@ async def loop():
                     page = await response.text()
                     doc = lxml.html.fromstring(page)
                     doc.make_links_absolute(str(url), resolve_base_href=True)
+                    links = set()
                     for _, _, link, _ in doc.iterlinks():
                         try:
                             new_url = Url(link)
@@ -139,8 +140,11 @@ async def loop():
                             logging.debug(f"filtered: malformed url {link[:20]}...")
                             continue
                         # record link
-                        links_file.write(f"{str(url)} {str(new_url)}\n")
+                        links.add(str(new_url))
                         new_urls.append(str(new_url))
+                    # record links
+                    for link in links:
+                        links_file.write(f"{str(url)} {link}\n")
                     # add new urls to frontier
                     new_urls = list(set(new_urls))
                     if new_urls:
