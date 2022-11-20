@@ -25,6 +25,13 @@ def redis_proto(redis_cmd):
 with open(args.tfs_path) as tfs_file:
     for line in tfs_file:
         word, url, tf = line.split()
+        cmd = f"SADD crawler:doclists:{word} {url}"
+        proto = redis_proto(cmd)
+        sys.stdout.write(proto)
+
+with open(args.tfs_path) as tfs_file:
+    for line in tfs_file:
+        word, url, tf = line.split()
         cmd = f"SET crawler:tfs:{word}:{url} {tf}" 
         proto = redis_proto(cmd)
         sys.stdout.write(proto)
