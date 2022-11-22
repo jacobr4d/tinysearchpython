@@ -133,7 +133,7 @@ We did a test crawl of 1000 pages from the seed "https://wikipedia.org"
 
 ### Results
 
-| Part | Stats |
+| Part | Stats | States Comparable |
 | --- | --- | --- |
 | Crawler | 1 Hour 3 Minutes | 16 pages / second | 
 | Crawl data | 6.5 GB | 130 KB / page |
