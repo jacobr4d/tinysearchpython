@@ -126,3 +126,17 @@ We did a test crawl of 1000 pages from the seed "https://wikipedia.org"
   - search needs to be redesigned to be more scalable
 
 # Second Iteration
+
+## Detailed Design
+
+## Quantitative Evaluation
+
+### Results
+| Part | Stats |
+| --- | --- | --- |
+| Crawler | 1 Hour 3 Minutes | 16 pages / second | 
+| Crawl data | 6.5 GB | 130 KB / page |
+| Crawler State | 768 MB | 15 KB / page |
+| Indexer | 11 Minutes | 75 pages / second |
+| Search data | 2 GB | 40 KB / page |
+| Seach data upload | 2 Minutes | 416 pages / second |
