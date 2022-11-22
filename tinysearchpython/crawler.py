@@ -109,12 +109,12 @@ async def loop():
                     if not response.headers['content-type'].startswith("text/html"):
                         logging.debug(f"filtered: non-html content-type {str(url)}")
                         continue
-                    if 'content-length' not in response.headers:
-                        logging.debug(f"filtered: no content-length {str(url)}")
-                        continue
-                    if int(response.headers['content-length']) > args.page_size_limit_bytes:
-                        logging.debug(f"filtered: big content-length {response.headers['content-length']} {url}")
-                        continue
+                    # if 'content-length' not in response.headers:
+                    #     logging.debug(f"filtered: no content-length {str(url)}")
+                    #     continue
+                    # if int(response.headers['content-length']) > args.page_size_limit_bytes:
+                    #     logging.debug(f"filtered: big content-length {response.headers['content-length']} {url}")
+                    #     continue
             except Exception as e:
                 logging.info(f"head exception: {e} {str(url)}")
                 continue
