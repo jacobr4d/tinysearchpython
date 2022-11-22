@@ -132,6 +132,7 @@ We did a test crawl of 1000 pages from the seed "https://wikipedia.org"
 ## Quantitative Evaluation
 
 ### Results
+
 | Part | Stats |
 | --- | --- | --- |
 | Crawler | 1 Hour 3 Minutes | 16 pages / second | 
