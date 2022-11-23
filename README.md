@@ -1,5 +1,7 @@
 A small and understandable HTML page crawler, indexer, and search engine
+
 Scales to at least 50k pages
+
 ~ 516 lines (sloccount)
 
 ## Demo
@@ -97,24 +99,21 @@ commit 991a2de631b331e30a1b3a6515e0d52d85f09503
 ## Quantitative Evalutation
 We did a test crawl of 1000 pages from the seed "https://wikipedia.org" 
 ### Results
-- Space
-  - Crawl data is ~87 MB (87 KB / page)
-  - Search data is ~32 MB (32 KB / page)
-  - Database size is ~32 MB (32 KB / page)
-- Time
-  - The crawler crawled 1000 pages in ~ 1 pages / second
-  - The indexer indexed 1000 pages in 89 seconds giving an average speed of 11 pages / second
-  - Database uploaded 1000 pages in 0.7 seconds giving an average speed of 1,400 pages / second
-  - With a corpus of 1000 pages, search for uncommon words are < 1 second, but search for "wikipedia" is 10 seconds
+
+| Step | Stats | Stats Comparable |
+| --- | --- | --- |
+| Crawler crawl | 17 Minutes | 1 pages / second 🐢 | 
+| Indexer index | 89 seconds | 11 pages / second |
+| Database upload | 0.7 seconds | 1,400 pages / second |
+| Search (queries with most results) | 10+ seconds | slow |
+| Total data (crawl + search) | 119 MB | 119 KB / page |
+| Total time | 1 Hour 16 Minutes | 10 pages / second |
 
 ### Conclusions
-- Space
-  - Our estimate of space requirements was a great conservative estimate
-- Time
-  - crawler needs to be > 10x faster
-  - indexer needs to be > 2x faster
-  - database upload is good
-  - search needs to be redesigned to be more scalable
+- Our estimate of space requirements was right on
+- Crawler needs to be at least __10x faster__ 🐢
+- Indexer needs to be at least __2x faster__ 🐢
+- Search needs to scale better 📈 (queries with a lot of results need to return faster)
 
 # Second Iteration
 
@@ -129,9 +128,8 @@ Test crawl of 50,000 HTML pages
 | Part | Stats | Stats Comparable |
 | --- | --- | --- |
 | Crawler | 1 Hour 3 Minutes | 16 pages / second | 
-| Crawl data | 6.5 GB | 130 KB / page |
-| Crawler State | 768 MB | 15 KB / page |
 | Indexer | 11 Minutes | 75 pages / second |
-| Search data | 2 GB | 40 KB / page |
-| Seach data upload | 2 Minutes | 416 pages / second |
+| Database (upload) | 2 Minutes | 416 pages / second |
+| Search (queries with most results) | seconds | fast |
+| Total data (crawl + search) | 8.5 GB | 170 KB / page |
 | Total time | 1 Hour 16 Minutes | 10 pages / second |
