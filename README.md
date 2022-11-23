@@ -39,22 +39,33 @@ python tinysearchpython/searcher.py -v -q "some search terms"
 
 ## Performance
 
+Based on a test crawl of 50,000 HTML pages
+
 | Part | Stats | Stats Comparable |
 | --- | --- | --- |
-| Crawler | 1 Hour 3 Minutes | 16 pages / second | 
-| Indexer | 11 Minutes | 75 pages / second |
+| Crawler | 1 Hour 3 Minutes | 16 pages / second 🏎️ | 
+| Indexer | 11 Minutes | 75 pages / second 🏎️ |
 | Database (upload) | 2 Minutes | 416 pages / second |
-| Search (worst case) | seconds | fast |
+| Search (worst case) | seconds | 🏎️ |
 | Total data (crawl + search) | 8.5 GB | 170 KB / page |
 | Total time | 1 Hour 16 Minutes | 10 pages / second |
 
-Based on a test crawl of 50,000 HTML pages
+Notes:
+- Scales to at least 50k pages
+- Suspected scaling bottlenecks:
+  - In-memory Redis crawler state grows over time, do we have enough memory to store frontier and urls seen for 1M pages?
+  - Crawler is not distributed, will more nodes = more IO = faster crawling?
 
 ## Design
 
 | Crawler | Indexer | Database | Search |
 | --- | --- | --- | --- |
 | Crawler state on redis node, asynchronous download-process loop | PySpark | Redis | Doclists for search terms are intersected on Redis-side before being sent over, data for those docs is retrieved asynchronously |
+
+Improvements on first iteration
+- Async crawler 🧠
+- In the indexer, pagerank is only computed for crawled urls (as opposed to also being computed for urls that were linked to but never crawled) 🧠
+- 
 
 <p align="center">
   <img src="https://raw.githubusercontent.com/jacobr4d/tinysearchpython/master/docs/iteration_2.png">
@@ -67,20 +78,20 @@ commit 991a2de631b331e30a1b3a6515e0d52d85f09503
 
 | Step | Stats | Stats Comparable |
 | --- | --- | --- |
-| Crawler crawl | 17 Minutes | 1 pages / second 🐢 | 
-| Indexer index | 89 seconds | 11 pages / second |
+| Crawler crawl | 17 Minutes | 1 pages / second 🐢🐢🐢 | 
+| Indexer index | 89 seconds | 11 pages / second 🐢 |
 | Database upload | 0.7 seconds | 1,400 pages / second |
-| Search (worst case) | 10+ seconds | slow 🐢 |
+| Search (worst case) | 10+ seconds | doesn't scale 🐢 |
 | Total data (crawl + search) | 119 MB | 119 KB / page |
 | Total time | 1 Hour 16 Minutes | 10 pages / second |
 
-Based on a test crawl of 1000 pages from the seed "https://wikipedia.org" 
+Notes:
+- Scales to at least 1000 pages
+- Biggest bottlenecks
+  - Synchronous crawling is slow, try threads or asynch IO?
+  - Search queries with a lot of results are slow, take intersection of docs for terms instead of union?
 
-### Summary
-- Our estimate of space requirements was right on
-- Crawler needs to be at least __10x faster__ 🐢
-- Indexer needs to be at least __2x faster__ 🐢
-- Search needs to scale better 📈 (queries with a lot of results need to return faster)
+Based on a test crawl of 1000 pages from the seed "https://wikipedia.org" 
 
 ## Design
 
