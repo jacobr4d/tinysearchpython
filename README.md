@@ -35,9 +35,66 @@ python tinysearchpython/searcher.py -v -q "some search terms"
   <img src="https://raw.githubusercontent.com/jacobr4d/tinysearchpython/master/docs/design.png">
 </p>
 
+# Second Iteration
+
+## Performance
+
+| Part | Stats | Stats Comparable |
+| --- | --- | --- |
+| Crawler | 1 Hour 3 Minutes | 16 pages / second | 
+| Indexer | 11 Minutes | 75 pages / second |
+| Database (upload) | 2 Minutes | 416 pages / second |
+| Search (worst case) | seconds | fast |
+| Total data (crawl + search) | 8.5 GB | 170 KB / page |
+| Total time | 1 Hour 16 Minutes | 10 pages / second |
+
+Based on a test crawl of 50,000 HTML pages
+
+## Design
+
+| Crawler | Indexer | Database | Search |
+| --- | --- | --- | --- |
+| Crawler state on redis node, asynchronous download-process loop | PySpark | Redis | Doclists for search terms are intersected on Redis-side before being sent over, data for those docs is retrieved asynchronously |
+
+<p align="center">
+  <img src="https://raw.githubusercontent.com/jacobr4d/tinysearchpython/master/docs/iteration_2.png">
+</p>
+
+# First Iteration
+commit 991a2de631b331e30a1b3a6515e0d52d85f09503
+
+## Performance
+
+| Step | Stats | Stats Comparable |
+| --- | --- | --- |
+| Crawler crawl | 17 Minutes | 1 pages / second 🐢 | 
+| Indexer index | 89 seconds | 11 pages / second |
+| Database upload | 0.7 seconds | 1,400 pages / second |
+| Search (worst case) | 10+ seconds | slow 🐢 |
+| Total data (crawl + search) | 119 MB | 119 KB / page |
+| Total time | 1 Hour 16 Minutes | 10 pages / second |
+
+Based on a test crawl of 1000 pages from the seed "https://wikipedia.org" 
+
+### Summary
+- Our estimate of space requirements was right on
+- Crawler needs to be at least __10x faster__ 🐢
+- Indexer needs to be at least __2x faster__ 🐢
+- Search needs to scale better 📈 (queries with a lot of results need to return faster)
+
+## Design
+
+| Crawler | Indexer | Database | Search |
+| --- | --- | --- | --- |
+| In memory state, synchronous download / process loop| PySpark | SQLite | Doclists for search terms are merged in memory using python lists |
+
+<p align="center">
+  <img src="https://raw.githubusercontent.com/jacobr4d/tinysearchpython/master/docs/iteration_1.png">
+</p>
+
 ## Requirements Estimates
 ### Analysis
-#### Space
+#### Space Complexity
 If we want 1M pages, asssuming 1K words per page, we will have 1B hits:
 <p align="center">
 1M pages * 1K words/page = 1B hits
@@ -60,69 +117,17 @@ Therefore the crawl data will be 150 GB in total:
 </p>
 Assuming that the search data will be smaller than the crawl data, we will need another 150 GB for search data. Therefore we will need 300 GB total for the file system, but since we don't want to get close to the limit, we should get a file stystem with a capacity for 400GB. Also, our database must store 150 GB of data, so its capacity should be > 200 GB.
 
-#### Time
+#### Time Complexity
 If we want to crawl 1M pages in 12 hrs, then we need to generate crawl data for a page at a rate of:
 <p align="center">
 1M pages/12hrs = ~ 23 pages / second
 </p>
 If we want to index 1M pages in 12 hrs, then we need to generate search data for a page at the same rate.
 
-### Conclusion
-- Space
-  - Our estimate for crawl data will be about 150GB (150 KB / page)
-  - Our estimate for search data will be about 150GB (150 KB / page)
-  - Therefore our file system needs capacity > 400 GB
-  - Therefore our database needs capacity > 200 GB
-- Time
-  - Crawler needs to download and process > 23 pages / second
-  - Indexer needs to process > 23 pages / second
-
-# First Iteration
-commit 991a2de631b331e30a1b3a6515e0d52d85f09503
-## Detailed Design
-
-| Crawler | Indexer | Database | Search |
-| --- | --- | --- | --- |
-| in memory state, synchronous work download-process loop| PySpark | SQLite | Doclists for search terms are merged in memory using python lists |
-
-<p align="center">
-  <img src="https://raw.githubusercontent.com/jacobr4d/tinysearchpython/master/docs/iteration_1.png">
-</p>
-
-## Quantitative Evalutation
-We did a test crawl of 1000 pages from the seed "https://wikipedia.org" 
-### Results
-
-| Step | Stats | Stats Comparable |
-| --- | --- | --- |
-| Crawler crawl | 17 Minutes | 1 pages / second 🐢 | 
-| Indexer index | 89 seconds | 11 pages / second |
-| Database upload | 0.7 seconds | 1,400 pages / second |
-| Search (worst case) | 10+ seconds | slow |
-| Total data (crawl + search) | 119 MB | 119 KB / page |
-| Total time | 1 Hour 16 Minutes | 10 pages / second |
-
-### Conclusions
-- Our estimate of space requirements was right on
-- Crawler needs to be at least __10x faster__ 🐢
-- Indexer needs to be at least __2x faster__ 🐢
-- Search needs to scale better 📈 (queries with a lot of results need to return faster)
-
-# Second Iteration
-
-## Detailed Design
-
-## Quantitative Evaluation
-
-Test crawl of 50,000 HTML pages
-
-### Results
-
-| Part | Stats | Stats Comparable |
-| --- | --- | --- |
-| Crawler | 1 Hour 3 Minutes | 16 pages / second | 
-| Indexer | 11 Minutes | 75 pages / second |
-| Database (upload) | 2 Minutes | 416 pages / second |
-| Search (worst case) | seconds | fast |
-| Total data (crawl + search) | 8.5 GB | 170 KB / page |
-| Total time | 1 Hour 16 Minutes | 10 pages / second |
+### Summary
+- Our estimate for crawl data will be about 150GB (150 KB / page)
+- Our estimate for search data will be about 150GB (150 KB / page)
+- Therefore our file system needs capacity > 400 GB
+- Therefore our database needs capacity > 200 GB
+- Crawler needs to download and process > 23 pages / second
+- Indexer needs to process > 23 pages / second
