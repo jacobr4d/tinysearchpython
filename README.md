@@ -83,8 +83,7 @@ commit 991a2de631b331e30a1b3a6515e0d52d85f09503
 
 | Crawler | Indexer | Database | Search |
 | --- | --- | --- | --- |
-| all crawler state is in memory (url_frontier, urls_seen, ...) | PySpark RDDs | SQLite | Doclists for terms are unioned using python lists |
-| synchronous and sequential (get page url from frontier, download page, processes page, repeat) | |  |
+| in memory state, synchronous work download-process loop| PySpark | SQLite | Doclists for search terms are merged in memory using python lists |
 
 <p align="center">
   <img src="https://raw.githubusercontent.com/jacobr4d/tinysearchpython/master/docs/iteration_1.png">
