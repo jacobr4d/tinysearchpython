@@ -80,18 +80,12 @@ If we want to index 1M pages in 12 hrs, then we need to generate search data for
 # First Iteration
 commit 991a2de631b331e30a1b3a6515e0d52d85f09503
 ## Detailed Design
-- Crawler
-  - all crawler state is in memory (url_frontier, urls_seen, ...)
-  - synchronous and sequential (get page url from frontier, download page, processes page, repeat)
-- Indexing
-  - PySpark RDDs
-- Database 
-  - SQLite
-  - should result in fast queries
-  - has big enough capacity for our needs
-- Search
-  - data for pages for terms is unioned 
-  - all these fetched results are put in python lists
+
+| Crawler | Indexer | Database | Search |
+| --- | --- | --- | --- |
+| all crawler state is in memory (url_frontier, urls_seen, ...) | PySpark RDDs | SQLite | Doclists for terms are unioned using python lists |
+| synchronous and sequential (get page url from frontier, download page, processes page, repeat) | |  |
+
 <p align="center">
   <img src="https://raw.githubusercontent.com/jacobr4d/tinysearchpython/master/docs/iteration_1.png">
 </p>
@@ -105,7 +99,7 @@ We did a test crawl of 1000 pages from the seed "https://wikipedia.org"
 | Crawler crawl | 17 Minutes | 1 pages / second 🐢 | 
 | Indexer index | 89 seconds | 11 pages / second |
 | Database upload | 0.7 seconds | 1,400 pages / second |
-| Search (queries with most results) | 10+ seconds | slow |
+| Search (worst case) | 10+ seconds | slow |
 | Total data (crawl + search) | 119 MB | 119 KB / page |
 | Total time | 1 Hour 16 Minutes | 10 pages / second |
 
@@ -130,6 +124,6 @@ Test crawl of 50,000 HTML pages
 | Crawler | 1 Hour 3 Minutes | 16 pages / second | 
 | Indexer | 11 Minutes | 75 pages / second |
 | Database (upload) | 2 Minutes | 416 pages / second |
-| Search (queries with most results) | seconds | fast |
+| Search (worst case) | seconds | fast |
 | Total data (crawl + search) | 8.5 GB | 170 KB / page |
 | Total time | 1 Hour 16 Minutes | 10 pages / second |
