@@ -1,43 +1,33 @@
 A small and understandable HTML page crawler, indexer, and search engine
-
+Scales to at least 50k pages
 ~ 516 lines (sloccount)
 
 ## Demo
 ```bash
 git clone https://github.com/jacobr4d/tinysearchpython.git
 cd tinysearchpython
-redis-server
-python tinysearchpython/crawler.py -v
+# run redis-server somewhere
+python tinysearchpython/crawler.py -v --seeds seeds
 # press ^C to stop crawler
-ls -l data
-# urls hits links added
 python tinysearchpython/indexer.py
-ls -l data
-# tfs idfs ranks added
-python tinysearchpython/database.py
-ls -l data
-# SQLite database added
-python tinysearchpython/searcher.py -v
-# open browser to localhost:8000
+python tinysearchpython/upload_data.py | redis-cli --pipe
+python tinysearchpython/searcher.py -v -q "some search terms"
 ```
 
-
-# Design & Thought Process
+# Design
 ## Goals
-### Qualitative
-- Batch crawling (not aiming for continuous crawling like google)
-- Crawl web in BFS fashion starting from seed URLS
-- Support multiple search terms
-### Quantitative
-- Capacity to crawl, index, search over 1M pages
-- Crawls, indexes 1M pages in < 1 day
-- Return search results in seconds
+- Batch crawling, indexing, etc. (not aiming for continuous crawling like google)
+- Crawl web from seed URLS, don't download same page twice
+- Cache robots.txt and respect robots.txt crawl delay directive for user-agent: *
+- Scale to 1,000,000 pages, and be able to crawl, index, etc. in < 1 day
+- Return results for any query in seconds
+- Incorperate TF, IDF, and page rank into search results
 
 ## High Level Strategy
 - **crawl** pages and generate crawl data
 - **index** pages (batch compute over crawl data to generate search data)
-- **store** search data in database for fast queries
-- **serve** search queries through web interface using database to provide search results quickly
+- **database** stores search data and provides fast queries for the searcher
+- **searcher** provides search results
 
 <p align="center">
   <img src="https://raw.githubusercontent.com/jacobr4d/tinysearchpython/master/docs/design.png">
@@ -88,16 +78,17 @@ If we want to index 1M pages in 12 hrs, then we need to generate search data for
 # First Iteration
 commit 991a2de631b331e30a1b3a6515e0d52d85f09503
 ## Detailed Design
-- Crawler is simple, in that
+- Crawler
   - all crawler state is in memory (url_frontier, urls_seen, ...)
-  - single cycle (one thread download and processes one page at a time)
-- Indexing happens on one machine and it's file system (as opposed to distributed) using Spark
-- Database is SQLite, and on one machine
+  - synchronous and sequential (get page url from frontier, download page, processes page, repeat)
+- Indexing
+  - PySpark RDDs
+- Database 
+  - SQLite
   - should result in fast queries
   - has big enough capacity for our needs
-- Search is simple, in that
-  - tfs, idfs, and pagerank are combined to produce ranking of results
-  - for every query term, data from all the pages with that term are fetched from index (not scalable with respect to many query terms)
+- Search
+  - data for pages for terms is unioned 
   - all these fetched results are put in python lists
 <p align="center">
   <img src="https://raw.githubusercontent.com/jacobr4d/tinysearchpython/master/docs/iteration_1.png">
@@ -131,9 +122,11 @@ We did a test crawl of 1000 pages from the seed "https://wikipedia.org"
 
 ## Quantitative Evaluation
 
+Test crawl of 50,000 HTML pages
+
 ### Results
 
-| Part | Stats | States Comparable |
+| Part | Stats | Stats Comparable |
 | --- | --- | --- |
 | Crawler | 1 Hour 3 Minutes | 16 pages / second | 
 | Crawl data | 6.5 GB | 130 KB / page |
@@ -141,3 +134,4 @@ We did a test crawl of 1000 pages from the seed "https://wikipedia.org"
 | Indexer | 11 Minutes | 75 pages / second |
 | Search data | 2 GB | 40 KB / page |
 | Seach data upload | 2 Minutes | 416 pages / second |
+| Total time | 1 Hour 16 Minutes | 10 pages / second |
