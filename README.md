@@ -26,8 +26,8 @@ python tinysearchpython/searcher.py -v -q "some search terms"
 - Incorperate TF, IDF, and page rank into search results
 
 ## High Level Strategy
-- **crawl** pages and generate crawl data
-- **index** pages (batch compute over crawl data to generate search data)
+- **crawler** downloads pages and generates crawl data
+- **indexer** indexes pages (batch computes over crawl data to generate search data)
 - **database** stores search data and provides fast queries for the searcher
 - **searcher** provides search results
 
@@ -35,7 +35,7 @@ python tinysearchpython/searcher.py -v -q "some search terms"
   <img src="https://raw.githubusercontent.com/jacobr4d/tinysearchpython/master/docs/design.png">
 </p>
 
-# Second Iteration
+# Second Iteration 8be76484344d4e22a948713036ee97795310a6f6
 
 ## Performance
 
@@ -65,16 +65,17 @@ Notes:
 Improvements on first iteration
 - Async crawler 🧠
 - In the indexer, pagerank is only computed for crawled urls (as opposed to also being computed for urls that were linked to but never crawled) 🧠
-- 
+- Searching doclists (for terms) intersected instead of unioned, and all data needed fetched asynchronously
 
 <p align="center">
   <img src="https://raw.githubusercontent.com/jacobr4d/tinysearchpython/master/docs/iteration_2.png">
 </p>
 
-# First Iteration
-commit 991a2de631b331e30a1b3a6515e0d52d85f09503
+# First Iteration 991a2de631b331e30a1b3a6515e0d52d85f09503
 
 ## Performance
+
+Based on a test crawl of 1000 pages from the seed "https://wikipedia.org" 
 
 | Step | Stats | Stats Comparable |
 | --- | --- | --- |
@@ -90,8 +91,6 @@ Notes:
 - Biggest bottlenecks
   - Synchronous crawling is slow, try threads or asynch IO?
   - Search queries with a lot of results are slow, take intersection of docs for terms instead of union?
-
-Based on a test crawl of 1000 pages from the seed "https://wikipedia.org" 
 
 ## Design
 
